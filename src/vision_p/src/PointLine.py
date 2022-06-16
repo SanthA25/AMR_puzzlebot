@@ -94,9 +94,18 @@ class LineFollower(object):
                 point2 = cv2.circle(resized, (int(desiredX),myY),5, (0,255,255))
                 error = desiredX-x
 
-                if LineBool>250 and (error> 30 or error<-30):
+                # if error>150 and LineBool<=250:
+                #     error = 150
+                # elif error<-150 and LineBool<=250:
+                #     error = -150
+
+                if LineBool>250 :
                     error = 500
                     print("Error",error)
+
+                elif LineBool<205 :
+                    error = 0
+                    print("Out",error)
                 # Publish point
 
                 self.pub.publish(error)

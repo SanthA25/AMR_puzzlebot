@@ -25,9 +25,6 @@ class Nodo(object):
     def callback(self, data):
         # rospy.loginfo('Image received')
         self.image = self.br.imgmsg_to_cv2(data, "bgr8")
-        # image_Hsv = cv2.imread('HSV_color.png')
-        # self.image = image_Hsv
-        cv2.imwrite('OriginalSem.png',self.image)
 
     def start(self):
         # rospy.loginfo("Timing images")
@@ -41,72 +38,76 @@ class Nodo(object):
                 image_res = cv2.resize(self.image, (0,0), fx=0.5, fy=0.5)
 
                 # blur to revome some noise
-                blur = cv2.GaussianBlur(image_res,(3,3),0)
-                #cv2.imwrite('Blur1.png',blur)
+                blur = cv2.GaussianBlur(image_res,(5,5),0)
                 # Image color to HSV
-                #hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-                hsv = blur
+                hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+                #------------------Blob detector Creation------------------
+                params = cv2.SimpleBlobDetector_Params()
+                params.blobColor = 0
+                params.filterByColor = False
+                params.filterByArea = True
+                params.minArea = 150
+                params.maxArea = 600
+                params.minThreshold = 0;
+                params.maxThreshold = 255;
+                ver = (cv2.__version__).split('.')
+                if int(ver[0]) < 3:
+                    detector = cv2.SimpleBlobDetector(params)
+                else:
+                    detector = cv2.SimpleBlobDetector_create(params)
 
                 #----------------------Color segmentation------------------
                 #Green mask
-                min_g = np.array([170, 170, 17])
-                max_g = np.array([235, 255, 235])
+                min_g = np.array([40, 50, 50])
+                max_g = np.array([80, 255, 255])
                 msk_0 = cv2.inRange(hsv, min_g, max_g)
 
-                # min_g = np.array([40, 0, 0])
-                # max_g = np.array([80, 100, 100])
-                # msk_0 = cv2.inRange(hsv, min_g, max_g)
+                min_g = np.array([50, 100, 100])
+                max_g = np.array([70, 255, 255])
+                msk_1 = cv2.inRange(hsv, min_g, max_g)
+
+                # join my masks for Green
+                msk_green = msk_0 + msk_1
 
                 # Morphological operations ##########################################
                 kernel = np.ones((4, 4), np.uint8)
                 #erosion
                 erosionG = cv2.erode(msk_0, kernel, iterations = 1)
-                #dilateG = cv2.dilate(erosionG, kernel, iterations = 1)
                 # cv2.imwrite('erosion.png',erosion)
 
-                # join my masks for Green
-                msk_green = msk_0
 
+                keypoints_G = detector.detect(erosionG)
+                im_with_keypoints_G = cv2.drawKeypoints(erosionG, keypoints_G, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
                 # # if there are any white pixels on mask, sum will be > 0
                 hasGreen = np.sum(erosionG)
+                # if hasGreen > 0:
+                #     colorStr = "green"
+                #     self.pub.publish(colorStr)
+                #     print('Green detected!')
 
-
-                #Red mask
-                lower_red = np.array([120,100,160])
-                upper_red = np.array([230,230,255])
+                # Red mask
+                lower_red = np.array([160,90,90])
+                upper_red = np.array([180,255,255])
                 mask0 = cv2.inRange(hsv, lower_red, upper_red)
                 #                      h  s   v
-                lower_red = np.array([0,0,90])
-                upper_red = np.array([12,50,95])
+                lower_red = np.array([0,110,110])
+                upper_red = np.array([15,255,255])
                 mask1 = cv2.inRange(hsv, lower_red, upper_red)
-
-                # lower_red = np.array([0,88,179])
-                # upper_red = np.array([33,255,255])
-                # mask0 = cv2.inRange(hsv, lower_red, upper_red)
-                # #                      h  s   v
-                # lower_red = np.array([170,50,50])
-                # upper_red = np.array([180,255,255])
-                # mask1 = cv2.inRange(hsv, lower_red, upper_red)
 
                 lower_red = np.array([15,100,100])
                 upper_red = np.array([30,255,255])
                 mask2 = cv2.inRange(hsv, lower_red, upper_red)
                 # join my masks for Red
-                msk_red = mask0
+                msk_red = mask0+mask1+mask2
 
-                erosionR = cv2.erode(msk_red, kernel, iterations = 1)
-                # dilateR = cv2.dilate(erosionR, kernel, iterations = 1)
+                erosionR = cv2.erode(mask0, kernel, iterations = 1)
                 # cv2.imwrite('erosion.png',erosionR)
-                #cv2.imwrite('Blur1.png',dilateR)
-
-                # if there are any white pixels on mask, sum will be > 0
-                hasRed = np.sum(erosionR)
 
                 #Blue mask
                 #                      h  s   v
-                lower_blue = np.array([70,50,30])
-                upper_blue = np.array([120,90,60])
+                lower_blue = np.array([85,80,80])
+                upper_blue = np.array([120,255,255])
                 mask1 = cv2.inRange(hsv, lower_blue, upper_blue)
                 # join my masks for blue
                 msk_blue = mask1
@@ -118,6 +119,18 @@ class Nodo(object):
 
                 # if there are any white pixels on mask, sum will be > 0
                 hasBlue = np.sum(erosionB)
+
+                keypoints_R = detector.detect(erosionR)
+                im_with_keypoints_R = cv2.drawKeypoints(erosionR, keypoints_R, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                rng = np.concatenate((im_with_keypoints_R,im_with_keypoints_G), axis = 1)
+                cv2.imwrite('Blobs.png',rng)
+
+                # if there are any white pixels on mask, sum will be > 0
+                hasRed = np.sum(erosionR)
+                # if hasRed > 0:
+                #     colorStr = "red"
+                #     self.pub.publish(colorStr)
+                #     print('Red detected!')
 
                 if hasGreen<10000 and hasRed<10000:
                     colorStr = "None"
@@ -146,23 +159,19 @@ class Nodo(object):
                     colorStr = "None"
                     self.pub.publish(colorStr)
 
+                res_red = cv2.bitwise_and(image_res,image_res, mask=erosionR)
+                res_green = cv2.bitwise_and(image_res,image_res, mask=erosionG)
+                color_dec = np.concatenate((res_red,res_green), axis = 1)
+                # cv2.imshow('Red & Green Detection', color_dec)
+
+                cv2.imwrite('Semaphores.png',color_dec)
 
                 print(colorStr)
                 print("HasRed =", hasRed)
                 print("hasGreen =", hasGreen)
                 print("hasBlue =",hasBlue)
-                res_red = cv2.bitwise_and(image_res,image_res, mask=erosionR)
-                res_green = cv2.bitwise_and(image_res,image_res, mask=erosionG)
-                res_blue = cv2.bitwise_and(image_res,image_res, mask=erosionB)
-                color_dec = np.concatenate((res_red,res_green), axis = 1)
-                # cv2.imshow('Red & Green Detection', color_dec)
-                cv2.imwrite('Blue.png',res_blue)
-                cv2.imwrite('Semaphores.png',color_dec)
 
                 cont = cont+1
-
-
-
 
             self.loop_rate.sleep()
 
@@ -199,6 +208,7 @@ if __name__ == '__main__':
     '''
     thr, binr = cv2.threshold(thh_red, 179, 255, cv2.THRESH_BINARY)
     thg, bing = cv2.threshold(thh_green, 130, 255, cv2.THRESH_BINARY)
+
     noiseless_image_bg = cv2.fastNlMeansDenoising(bing, None,30, 7,27)
     noiseless_image_br = cv2.fastNlMeansDenoising(binr, None,30, 7,27)
     myMask = cv2.bitwise_or(noiseless_image_bg, noiseless_image_br)

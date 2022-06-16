@@ -33,11 +33,11 @@ class DiffRobot:
         self.semafore = ""
 
         self.pathCurve =[[0,0],
-                        [0.,0.25],
-                        [0.25,0.25]]
+                        [0.,0.35],
+                        [0.35,0.25]]
 
         self.pathLine =[[0,0],
-                        [-0.02,0.50]]
+                        [0,0.55]]
 
         self.path = []
 
@@ -108,21 +108,6 @@ class DiffRobot:
         last_time = rospy.get_time()
 
         msg = Twist()
-        self.x = 0
-        self.y = 0
-        self.theta = 3.1416/2
-
-        self.Wl = 0
-        self.Wr = 0
-
-        self.r = 0.05
-        self.l = 0.19
-
-        self.eD = 0
-        self.eT = 0
-
-        self.roboVel = 0
-        self.roboW = 0
         msg.linear.x = 0
         msg.linear.y = 0
         msg.linear.z = 0
@@ -131,7 +116,7 @@ class DiffRobot:
         msg.angular.z = 0
 
         kV = 0.25
-        kW = 0.15
+        kW = 0.20
 
         pathPoint = 1
         xT = self.path[pathPoint][0]
@@ -160,21 +145,14 @@ class DiffRobot:
                 if (msg.angular.z<= -0.9):
                     msg.angular.z = -0.8
 
-            # if ((self.eT > 0.15 or self.eT < -0.15) and self.eD > 0.10 and pathToUse=="Curve"):
-            #     msg.linear.x = 0.4
-            #     msg.angular.z  = kW * self.eT
-            #     if (msg.angular.z >= 0.9):
-            #         msg.angular.z = 0.8
-            #     if (msg.angular.z<= -0.9):
-            #         msg.angular.z = -0.8
 
             if (self.eD > 0.15 and (-0.15 < self.eT and self.eT < 0.15)):
                 msg.linear.x = kV * self.eD
                 msg.angular.z  = 0.0
-                if (msg.linear.x >= 0.7):
-                    msg.linear.x = 0.7
-                if (msg.linear.x <= -0.7):
-                    msg.linear.x = -0.7
+                if (msg.linear.x >= 0.5):
+                    msg.linear.x = 0.5
+                if (msg.linear.x <= -0.5):
+                    msg.linear.x = -0.5
 
 
             if (-0.15 <= self.eT and self.eT <= 0.15 and self.eD <= 0.15):
@@ -211,12 +189,12 @@ class DiffRobot:
         msg.angular.y = 0
         msg.angular.z = 0
 
-        kV = 0.15
+        kV = 0.17
         kW = 0.0008
 
         LimitVelW = 0.12
         LimitVelL = kV
-        LimitErr = 15
+        LimitErr = 10
         self.errLine = 0
         self.semafore = "None"
 
@@ -226,7 +204,7 @@ class DiffRobot:
             dt = current_time - last_time
             last_time = current_time
 
-            if (self.semafore == "red" and self.errLine==500):
+            if (self.semafore == "red" ):
                 msg.linear.x = 0
                 msg.linear.y = 0
                 msg.linear.z = 0
@@ -234,7 +212,6 @@ class DiffRobot:
                 msg.angular.y = 0
                 msg.angular.z = 0
                 print("Stop Semaphore red")
-                rospy.sleep(1)
 
             elif (self.semafore == "blue" and self.errLine==500):
                 print("Turning")
@@ -252,10 +229,6 @@ class DiffRobot:
                 print("Finish turn")
 
             else:
-                # if (self.semafore == "blue" or self.semafore == "red") and self.errLine>>20:
-                #     error = 15
-                # elif (self.semafore == "blue" or self.semafore == "red") and self.errLine>-20:
-                #     error = -15
                 if (self.errLine > LimitErr):
                     msg.linear.x = kV/1.5
                     if (kW*self.errLine>LimitVelW):
